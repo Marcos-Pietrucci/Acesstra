@@ -1,5 +1,3 @@
 # Acesstra-ADA
 
-Bem vindos ao repositório do acestra, projeto de alunos do grupo ADA - Projetos em engenharia de computação. Com este projeto desejamos automatizar a porta da nossa sala utilizando de cartões RFID
-
-<strike>desculpem a descrição simplista, tentarei melhorar</strike>
+Tenham preferência por dar <b>push nesta branch</b>!! Assim todos podem criar <i>pull-requests</i> e o código poderá ser devidamente corrigido e vizualizado por todos <b>antes do merge na master!</b>

@@ -3,6 +3,11 @@
 
 #define RST_PIN         9           // Configurable, see typical pin layout above
 #define SS_PIN          10          // Configurable, see typical pin layout above
+#define led_verde       3
+#define led_vermelho    2
+#define servo           3
+#define but_in          4
+#define but_out         5
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);   // Create MFRC522 instance
 
@@ -14,11 +19,31 @@ struct membro{
 char *nome = calloc(16, sizeof(char)); 
 char *nusp_char = calloc(16,sizeof(char));
 
+int estado_porta = 1; //0 para fechado, 1 para aberto.
+
 int indc = -1; //Registra o índice dos cadastros
 struct membro cadastro[5];
 
-void destravar(){} //Todo o código envolvendo a porta vai aqui
-void abre_porta(long nusp_lido) //Função prototipo
+void ativar_servo() //true abre, false fecha
+{
+  //Ativa o servo e destrava/trava a porta
+  if(!estado_porta) //Está trancada
+  { //Abre a porta aqui
+    digitalWrite(led_verde, HIGH);
+    digitalWrite(led_vermelho, LOW);
+    estado_porta = 1;
+  }
+  else
+  { //Fecha a porta
+
+    digitalWrite(led_verde, LOW);
+    digitalWrite(led_vermelho, HIGH);
+    estado_porta = 0;
+  }
+}
+
+
+void detecta_membro(long nusp_lido) //Função prototipo
 {
   bool abre = false;
   int i;
@@ -26,7 +51,7 @@ void abre_porta(long nusp_lido) //Função prototipo
   {
     if(cadastro[i].nusp == nusp_lido)
     {
-      destravar();
+      ativar_servo(); 
       abre = true;
       break; //Saio do for neste instante
     } 
@@ -51,10 +76,18 @@ void cadastra_membro(char nome[16], long nusp)
 }
 
 //*****************************************************************************************//
-void setup() {
+void setup() 
+{
+  pinMode(led_verde, OUTPUT);
+  pinMode(led_vermelho, OUTPUT);
+  
   Serial.begin(9600);                                           // Initialize serial communications with the PC
   SPI.begin();                                                  // Init SPI bus
   mfrc522.PCD_Init();                                              // Init MFRC522 card
+  //Depois de setar o servomotor
+  
+  ativar_servo();
+  
   cadastra_membro("Alguem", 10228323L);
   cadastra_membro("Fulano", 8283712L);
   cadastra_membro("Marcia", 12345678L);
@@ -70,14 +103,10 @@ void loop()
   MFRC522::MIFARE_Key key;
   for (byte i = 0; i < 6; i++) key.keyByte[i] = 0xFF;
 
-  //some variables we need
   byte block;
   byte len;
   MFRC522::StatusCode status;
 
-  //-------------------------------------------
-
-  // Reset the loop if no new card present on the sensor/reader. This saves the entire process when idle.
   if ( ! mfrc522.PICC_IsNewCardPresent()) {
     return;
   }
@@ -158,7 +187,7 @@ void loop()
   long nusp_l = atol(nusp_char);
   Serial.print(nusp_l);
 
-  abre_porta(nusp_l);
+  detecta_membro(nusp_l);
 
   //----------------------------------------
 
