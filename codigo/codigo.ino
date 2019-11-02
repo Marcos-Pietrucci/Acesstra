@@ -6,8 +6,10 @@
 #define led_verde       3
 #define led_vermelho    2
 #define servo           3
-#define but_in          4
-#define but_out         5
+#define but_in          4 //Botão interno abre ou fecha!
+#define but_out         5 //Botão externo vai apenas travar!!
+#define NUMERO_MESTRE   42 //Número exclusivo do cartão mestre, cuja única finalidade é cadastrar novos membros
+#define TEMP_MEMBRO     22 //Número que os cartões de membros "visitantes" terão - Esses não contarão com uma música personalizada
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);   // Create MFRC522 instance
 
@@ -24,42 +26,191 @@ int estado_porta = 1; //0 para fechado, 1 para aberto.
 int indc = -1; //Registra o índice dos cadastros
 struct membro cadastro[5];
 
-void ativar_servo() //true abre, false fecha
+void ajusta_led() //Ajusta os leds  para o estado atual da porta
 {
+  if(estado_porta)
+  {
+    digitalWrite(led_verde, LOW);
+    digitalWrite(led_vermelho, HIGH);
+  }
+  else
+  {
+    digitalWrite(led_verde, HIGH);
+    digitalWrite(led_vermelho, LOW);
+  }
+  
+}
+
+void ativar_servo()
+{ 
+  //Adicionar reações do buzzer também
   //Ativa o servo e destrava/trava a porta
   if(!estado_porta) //Está trancada
   { //Abre a porta aqui
-    digitalWrite(led_verde, HIGH);
-    digitalWrite(led_vermelho, LOW);
     estado_porta = 1;
+    ajusta_led();
   }
   else
   { //Fecha a porta
-
-    digitalWrite(led_verde, LOW);
-    digitalWrite(led_vermelho, HIGH);
     estado_porta = 0;
+    ajusta_led();
   }
 }
 
+void cadastra_membro_temporario()
+{
+  Serial.println("Ola sr(a) admin, vamos cadastrar um membro temporario");
+  delay(1500);
+  int estado_led = HIGH;
+  unsigned long pretempo = 0, tempo = millis();
+
+  MFRC522::MIFARE_Key key;
+  for (byte i = 0; i < 6; i++) key.keyByte[i] = 0xFF;
+
+  while( ! mfrc522.PICC_IsNewCardPresent() || ! mfrc522.PICC_ReadCardSerial())
+  { //Enquanto ainda não aproximar o cartão
+    if(tempo - pretempo >= 1000)
+    {
+      pretempo = tempo;
+      digitalWrite(led_verde, estado_led);
+      digitalWrite(led_vermelho, estado_led);
+      estado_led = !estado_led; //Da próxima vez que entrar nesta função temporal, terá o efeito contrário
+    }
+  }
+  //Saiu do while, significa que encontrou o cartão
+  digitalWrite(led_verde, HIGH);
+  digitalWrite(led_vermelho, HIGH);
+
+  Serial.print(F("Card UID:"));    //Dump UID
+  for (byte i = 0; i < mfrc522.uid.size; i++) {
+    Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
+    Serial.print(mfrc522.uid.uidByte[i], HEX);
+  }
+  
+  
+  MFRC522::PICC_Type piccType = mfrc522.PICC_GetType(mfrc522.uid.sak);
+
+  byte buffer[34];
+  byte block;
+  MFRC522::StatusCode status;
+  byte len;
+
+  // Sobrenome - nusp visitante
+  buffer[0] = '2';
+  buffer[1] = '2';
+     //TEMP_MEMBRO);
+  //for (byte i = len; i < 30; i++) buffer[i] = ' ';     // pad with spaces
+
+  block = 1;
+  
+  status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, block, &key, &(mfrc522.uid));
+  if (status != MFRC522::STATUS_OK) {
+    Serial.print(F("PCD_Authenticate() failed: "));
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    return;
+  }
+  else Serial.println(F("PCD_Authenticate() success: "));
+
+  // Write block
+  status = mfrc522.MIFARE_Write(block, buffer, 16);
+  if (status != MFRC522::STATUS_OK) {
+    Serial.print(F("MIFARE_Write() failed: "));
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    return;
+  }
+  else Serial.println(F("MIFARE_Write() success: "));
+
+  block = 2;
+  status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, block, &key, &(mfrc522.uid));
+  if (status != MFRC522::STATUS_OK) {
+    Serial.print(F("PCD_Authenticate() failed: "));
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    return;
+  }
+
+  // Write block
+  status = mfrc522.MIFARE_Write(block, &buffer[16], 16);
+  if (status != MFRC522::STATUS_OK) {
+    Serial.print(F("MIFARE_Write() failed: "));
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    return;
+  }
+  else Serial.println(F("MIFARE_Write() success: "));
+
+  // Primeiro nome 
+  Serial.println(F("Type First name, ending with #"));
+  strcpy(buffer,"aluno"); // read first name from serial
+  //for (byte i = len; i < 20; i++) buffer[i] = ' ';     // pad with spaces
+
+  block = 4;
+  //Serial.println(F("Authenticating using key A..."));
+  status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, block, &key, &(mfrc522.uid));
+  if (status != MFRC522::STATUS_OK) {
+    Serial.print(F("PCD_Authenticate() failed: "));
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    return;
+  }
+
+  // Write block
+  status = mfrc522.MIFARE_Write(block, buffer, 16);
+  if (status != MFRC522::STATUS_OK) {
+    Serial.print(F("MIFARE_Write() failed: "));
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    return;
+  }
+  else Serial.println(F("MIFARE_Write() success: "));
+
+  block = 5;
+  //Serial.println(F("Authenticating using key A..."));
+  status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, block, &key, &(mfrc522.uid));
+  if (status != MFRC522::STATUS_OK) {
+    Serial.print(F("PCD_Authenticate() failed: "));
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    return;
+  }
+
+  // Write block
+  status = mfrc522.MIFARE_Write(block, &buffer[16], 16);
+  if (status != MFRC522::STATUS_OK) {
+    Serial.print(F("MIFARE_Write() failed: "));
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    return;
+  }
+  else Serial.println(F("MIFARE_Write() success: "));
+
+
+  Serial.println(" ");
+  mfrc522.PICC_HaltA(); // Halt PICC
+  mfrc522.PCD_StopCrypto1();  // Stop encryption on PCD
+  ajusta_led();
+  delay(1000); //Dar um tempo até que o elemento desaproxime o cartão
+}
 
 void detecta_membro(long nusp_lido) //Função prototipo
 {
   bool abre = false;
   int i;
-  for(i = 0; i <= indc; i++)
+  if(nusp_lido == NUMERO_MESTRE)
   {
-    if(cadastro[i].nusp == nusp_lido)
+    cadastra_membro_temporario();
+    //Bipar o buzzer, indicando que deve aproximar o novo cartão a ser cadastrado
+    return;
+  } 
+  
+  for(i = 0; i <= indc; i++)
+  { //Percorre todos os cadastros pesquisando por membros ou por cartões visitante
+    if(cadastro[i].nusp == nusp_lido || nusp_lido == TEMP_MEMBRO)
     {
       ativar_servo(); 
       abre = true;
       break; //Saio do for neste instante
     } 
   }
+  
   if(abre)
   { 
     Serial.println("\nBem vindo: ");
-    Serial.println(cadastro[i].nome);
+    //Serial.println(cadastro[i].nome); apresentação de nome meramente para testes
   }
   else
   {
@@ -69,7 +220,7 @@ void detecta_membro(long nusp_lido) //Função prototipo
 }
 
 void cadastra_membro(char nome[16], long nusp)
-{
+{ //No futuro, esta função deve carregar os cadastros presentes no cartão SD
   indc++;
   strcpy(cadastro[indc].nome, nome);
   cadastro[indc].nusp = nusp;
@@ -98,7 +249,13 @@ void setup()
 //*****************************************************************************************//
 void loop() 
 {
-  
+
+  if(digitalRead(but_in)) //Apertaram o botão interno, movimentar o sistema
+    ativar_servo();
+
+  if(digitalRead(but_out) && estado_porta == 1) //Se o botão externo foi pressionado e a porta estava aberta, fecha a porta
+    ativar_servo();
+    
   // Prepare key - all keys are set to FFFFFFFFFFFFh at chip delivery from the factory.
   MFRC522::MIFARE_Key key;
   for (byte i = 0; i < 6; i++) key.keyByte[i] = 0xFF;
@@ -187,8 +344,6 @@ void loop()
   long nusp_l = atol(nusp_char);
   Serial.print(nusp_l);
 
-  detecta_membro(nusp_l);
-
   //----------------------------------------
 
   Serial.println(F("\n**Terminou**\n"));
@@ -197,7 +352,10 @@ void loop()
 
   mfrc522.PICC_HaltA();
   mfrc522.PCD_StopCrypto1();
-  
+
+
+  //Tenho que esperar o RFID completar seu ciclo, para, se necessário, eu poder utilizá-lo no cadastro
+   detecta_membro(nusp_l);
   //Zerando as variaveis globais
   for(int j = 0; j < 16; j++)
   {
