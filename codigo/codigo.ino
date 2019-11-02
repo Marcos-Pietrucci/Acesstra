@@ -184,6 +184,7 @@ void cadastra_membro_temporario()
   mfrc522.PCD_StopCrypto1();  // Stop encryption on PCD
   ajusta_led();
   delay(1000); //Dar um tempo até que o elemento desaproxime o cartão
+
 }
 
 void detecta_membro(long nusp_lido) //Função prototipo
