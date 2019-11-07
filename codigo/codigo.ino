@@ -5,7 +5,7 @@
 #define SS_PIN          10          // Configurable, see typical pin layout above
 #define led_verde       3
 #define led_vermelho    2
-#define servo           3
+#define servo           6
 #define but_in          4 //Botão interno abre ou fecha!
 #define but_out         5 //Botão externo vai apenas travar!!
 #define NUMERO_MESTRE   42 //Número exclusivo do cartão mestre, cuja única finalidade é cadastrar novos membros
@@ -28,7 +28,7 @@ struct membro cadastro[5];
 
 void ajusta_led() //Ajusta os leds  para o estado atual da porta
 {
-  if(estado_porta)
+  if(!estado_porta) //Se estiver fechado
   {
     digitalWrite(led_verde, LOW);
     digitalWrite(led_vermelho, HIGH);
@@ -57,26 +57,30 @@ void ativar_servo()
   }
 }
 
-void cadastra_membro_temporario()
+void reseta_rfid()
+{
+  mfrc522.PICC_HaltA();
+  mfrc522.PCD_StopCrypto1();
+}
+
+int cadastra_membro_temporario()
 {
   Serial.println("Ola sr(a) admin, vamos cadastrar um membro temporario");
   delay(1500);
   int estado_led = HIGH;
-  unsigned long pretempo = 0, tempo = millis();
 
   MFRC522::MIFARE_Key key;
   for (byte i = 0; i < 6; i++) key.keyByte[i] = 0xFF;
 
   while( ! mfrc522.PICC_IsNewCardPresent() || ! mfrc522.PICC_ReadCardSerial())
   { //Enquanto ainda não aproximar o cartão
-    if(tempo - pretempo >= 1000)
-    {
-      pretempo = tempo;
-      digitalWrite(led_verde, estado_led);
-      digitalWrite(led_vermelho, estado_led);
-      estado_led = !estado_led; //Da próxima vez que entrar nesta função temporal, terá o efeito contrário
-    }
+    
+    digitalWrite(led_verde, estado_led);
+    digitalWrite(led_vermelho, estado_led);
+    estado_led = !estado_led;
+    delay(250);
   }
+  
   //Saiu do while, significa que encontrou o cartão
   digitalWrite(led_verde, HIGH);
   digitalWrite(led_vermelho, HIGH);
@@ -98,65 +102,66 @@ void cadastra_membro_temporario()
   // Sobrenome - nusp visitante
   buffer[0] = '2';
   buffer[1] = '2';
-     //TEMP_MEMBRO);
-  //for (byte i = len; i < 30; i++) buffer[i] = ' ';     // pad with spaces
 
   block = 1;
   
   status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, block, &key, &(mfrc522.uid));
   if (status != MFRC522::STATUS_OK) {
-    Serial.print(F("PCD_Authenticate() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-    return;
+    //Serial.print(F("PCD_Authenticate() failed: "));
+    //Serial.println(mfrc522.GetStatusCodeName(status));
+    reseta_rfid();
+    return 0;
   }
   else Serial.println(F("PCD_Authenticate() success: "));
 
   // Write block
   status = mfrc522.MIFARE_Write(block, buffer, 16);
   if (status != MFRC522::STATUS_OK) {
-    Serial.print(F("MIFARE_Write() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-    return;
+    //Serial.print(F("MIFARE_Write() failed: "));
+    //Serial.println(mfrc522.GetStatusCodeName(status));
+    reseta_rfid();
+    return 0;
   }
   else Serial.println(F("MIFARE_Write() success: "));
 
   block = 2;
   status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, block, &key, &(mfrc522.uid));
   if (status != MFRC522::STATUS_OK) {
-    Serial.print(F("PCD_Authenticate() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-    return;
+    //Serial.print(F("PCD_Authenticate() failed: "));
+    //Serial.println(mfrc522.GetStatusCodeName(status));
+    reseta_rfid();
+    return 0;
   }
 
   // Write block
   status = mfrc522.MIFARE_Write(block, &buffer[16], 16);
   if (status != MFRC522::STATUS_OK) {
-    Serial.print(F("MIFARE_Write() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-    return;
+    //Serial.print(F("MIFARE_Write() failed: "));
+    reseta_rfid();
+    return 0;
   }
   else Serial.println(F("MIFARE_Write() success: "));
 
   // Primeiro nome 
-  Serial.println(F("Type First name, ending with #"));
-  strcpy(buffer,"aluno"); // read first name from serial
+    strcpy(buffer,"aluno"); // read first name from serial
   //for (byte i = len; i < 20; i++) buffer[i] = ' ';     // pad with spaces
 
   block = 4;
   //Serial.println(F("Authenticating using key A..."));
   status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, block, &key, &(mfrc522.uid));
-  if (status != MFRC522::STATUS_OK) {
-    Serial.print(F("PCD_Authenticate() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-    return;
+  if (status != MFRC522::STATUS_OK) 
+  {
+    //Serial.print(F("PCD_Authenticate() failed: "));
+    reseta_rfid();
+    return 0;
   }
 
   // Write block
   status = mfrc522.MIFARE_Write(block, buffer, 16);
   if (status != MFRC522::STATUS_OK) {
-    Serial.print(F("MIFARE_Write() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-    return;
+    //Serial.print(F("MIFARE_Write() failed: "));
+    reseta_rfid();
+    return 0;
   }
   else Serial.println(F("MIFARE_Write() success: "));
 
@@ -164,17 +169,17 @@ void cadastra_membro_temporario()
   //Serial.println(F("Authenticating using key A..."));
   status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, block, &key, &(mfrc522.uid));
   if (status != MFRC522::STATUS_OK) {
-    Serial.print(F("PCD_Authenticate() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-    return;
+    //Serial.print(F("PCD_Authenticate() failed: "));
+    reseta_rfid();
+    return 0;
   }
 
   // Write block
   status = mfrc522.MIFARE_Write(block, &buffer[16], 16);
   if (status != MFRC522::STATUS_OK) {
-    Serial.print(F("MIFARE_Write() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-    return;
+    //Serial.print(F("MIFARE_Write() failed: "));
+    reseta_rfid();
+    return 0;
   }
   else Serial.println(F("MIFARE_Write() success: "));
 
@@ -183,7 +188,7 @@ void cadastra_membro_temporario()
   mfrc522.PICC_HaltA(); // Halt PICC
   mfrc522.PCD_StopCrypto1();  // Stop encryption on PCD
   ajusta_led();
-  delay(1000); //Dar um tempo até que o elemento desaproxime o cartão
+  return 1; //Deu tudo certo!! 
 
 }
 
@@ -193,7 +198,9 @@ void detecta_membro(long nusp_lido) //Função prototipo
   int i;
   if(nusp_lido == NUMERO_MESTRE)
   {
-    cadastra_membro_temporario();
+    while(!cadastra_membro_temporario()) //Enquanto ele não conseguir cadastrar o membro, ficar tentando!
+    {;}
+    
     //Bipar o buzzer, indicando que deve aproximar o novo cartão a ser cadastrado
     return;
   } 
@@ -250,12 +257,21 @@ void setup()
 //*****************************************************************************************//
 void loop() 
 {
-
-  if(digitalRead(but_in)) //Apertaram o botão interno, movimentar o sistema
+  
+  if(digitalRead(but_in))//Apertaram o botão interno, movimentar o sistema
+  {
+    while(digitalRead(but_in) == HIGH){;}
+    delay(10);
     ativar_servo();
+  }
+    
 
   if(digitalRead(but_out) && estado_porta == 1) //Se o botão externo foi pressionado e a porta estava aberta, fecha a porta
+  {
+    while(digitalRead(but_out) == HIGH){;}
+    delay(10);
     ativar_servo();
+  }
     
   // Prepare key - all keys are set to FFFFFFFFFFFFh at chip delivery from the factory.
   MFRC522::MIFARE_Key key;
@@ -278,7 +294,7 @@ void loop()
 
   //-------------------------------------------
 
-  mfrc522.PICC_DumpDetailsToSerial(&(mfrc522.uid)); //dump some details about the card
+  //mfrc522.PICC_DumpDetailsToSerial(&(mfrc522.uid)); //dump some details about the card
 
   //mfrc522.PICC_DumpToSerial(&(mfrc522.uid));      //uncomment this to see all blocks in hex
 
@@ -292,15 +308,15 @@ void loop()
   //------------------------------------------- GET FIRST NAME
   status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, 4, &key, &(mfrc522.uid)); //line 834 of MFRC522.cpp file
   if (status != MFRC522::STATUS_OK) {
-    Serial.print(F("Authentication failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
+    //Serial.print(F("Authentication failed: "));
+    reseta_rfid();
     return;
   }
 
   status = mfrc522.MIFARE_Read(block, buffer1, &len);
   if (status != MFRC522::STATUS_OK) {
-    Serial.print(F("Reading failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
+    //Serial.print(F("Reading failed: "));
+    reseta_rfid();
     return;
   }
  
@@ -322,15 +338,15 @@ void loop()
 
   status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, 1, &key, &(mfrc522.uid)); //line 834
   if (status != MFRC522::STATUS_OK) {
-    Serial.print(F("Authentication failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
+    //Serial.print(F("Authentication failed: "));
+    reseta_rfid();
     return;
   }
 
   status = mfrc522.MIFARE_Read(block, buffer2, &len);
   if (status != MFRC522::STATUS_OK) {
-    Serial.print(F("Reading failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
+    //Serial.print(F("Reading failed: "));
+    reseta_rfid();
     return;
   }
 
