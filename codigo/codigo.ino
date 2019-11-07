@@ -68,19 +68,17 @@ int cadastra_membro_temporario()
   Serial.println("Ola sr(a) admin, vamos cadastrar um membro temporario");
   delay(1500);
   int estado_led = HIGH;
-
+  
   MFRC522::MIFARE_Key key;
   for (byte i = 0; i < 6; i++) key.keyByte[i] = 0xFF;
 
   while( ! mfrc522.PICC_IsNewCardPresent() || ! mfrc522.PICC_ReadCardSerial())
-  { //Enquanto ainda não aproximar o cartão
-    
+  { //Enquanto ainda não aproximar o cartão    
     digitalWrite(led_verde, estado_led);
     digitalWrite(led_vermelho, estado_led);
     estado_led = !estado_led;
     delay(250);
   }
-  
   //Saiu do while, significa que encontrou o cartão
   digitalWrite(led_verde, HIGH);
   digitalWrite(led_vermelho, HIGH);
@@ -172,6 +170,7 @@ int cadastra_membro_temporario()
     //Serial.print(F("PCD_Authenticate() failed: "));
     reseta_rfid();
     return 0;
+
   }
 
   // Write block
@@ -189,7 +188,6 @@ int cadastra_membro_temporario()
   mfrc522.PCD_StopCrypto1();  // Stop encryption on PCD
   ajusta_led();
   return 1; //Deu tudo certo!! 
-
 }
 
 void detecta_membro(long nusp_lido) //Função prototipo
@@ -200,7 +198,7 @@ void detecta_membro(long nusp_lido) //Função prototipo
   {
     while(!cadastra_membro_temporario()) //Enquanto ele não conseguir cadastrar o membro, ficar tentando!
     {;}
-    
+
     //Bipar o buzzer, indicando que deve aproximar o novo cartão a ser cadastrado
     return;
   } 
