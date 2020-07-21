@@ -1,4 +1,3 @@
 # Acesstra-ADA
 
-Branch Master do nosso projeto!
-Esse projeto visa automatizar o acesso à sala da ADA, por meio do uso de cartões RFID.
+Projeto foi movido para <a href="https://github.com/ADA-EC/accestra"> Este repositório </a>
